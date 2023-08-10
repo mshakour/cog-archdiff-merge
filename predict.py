@@ -1,0 +1,130 @@
+#predict.py
+
+from cog import BasePredictor, Input, Path
+from cldm.model import create_model, load_state_dict
+from ldm.models.diffusion.ddim import DDIMSampler
+from PIL import Image
+import numpy as np
+from typing import List
+# from utils import download_model
+from gradio_lineart import process
+
+
+class Predictor(BasePredictor):
+    def setup(self):
+        """Load the model into memory to make running multiple predictions efficient"""
+        # download_model("https://civitai-delivery-worker-prod-2023-08-01.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/941582/model/xsmerge.vwdj.ckpt?X-Amz-Expires=86400&response-content-disposition=attachment%3B%20filename%3D%22xsmerge_v31.ckpt%22&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=2fea663d76bd24a496545da373d610fc/20230810/us-east-1/s3/aws4_request&X-Amz-Date=20230810T134122Z&X-Amz-SignedHeaders=host&X-Amz-Signature=e886c092897c3e3cae0566bc2b833a36e972157b00a98627d54a26b356f79cd4", "./models")
+        # download_model("https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_lineart.pth", "./models")
+        model_name = 'control_v11p_sd15_lineart'
+        self.model = create_model(f'./models/{model_name}.yaml').cuda()
+        self.model.load_state_dict(load_state_dict('./models/xsmerge_v31.ckpt', location='cuda'), strict=False)
+        self.model.load_state_dict(load_state_dict(f'./models/{model_name}.pth', location='cuda'), strict=False)
+        self.ddim_sampler = DDIMSampler(self.model)
+
+    def predict(
+        self,
+        image: Path = Input(
+                    description="Input image"
+                ),
+                prompt: str = Input(
+                    description="Prompt for the model",
+                    default='villa'
+                ),
+                structure: str = Input(
+                    description="Structure to condition on",
+                    choices=['lineart'],
+                    default='lineart'
+                ),
+                num_samples: str = Input(
+                    description="Number of samples (higher values may OOM)",
+                    choices=['1', '4'],
+                    default='1'
+                ),
+                image_resolution: int = Input(
+                    description="Resolution of image",
+                    default=512
+                ),
+                ddim_steps: int = Input(
+                    description="Steps",
+                    default=20
+                ),
+                strength: float = Input(
+                    description="Control strength",
+                    default=1.0
+                ),
+                scale: float = Input(
+                    description="Scale for classifier-free guidance",
+                    default=7.0,
+                    ge=0.1,
+                    le=30.0
+                ),
+                seed: int = Input(
+                    description="Seed",
+                    default=None
+                ),
+                eta: float = Input(
+                    description="Controls the amount of noise that is added to the input data during the denoising diffusion process. Higher value -> more noise",
+                    default=0.0
+                ),
+                preprocessor: str= Input(
+                    description="preprocessor",
+                    default="Lineart", 
+                    choices=["Lineart", "Lineart_Coarse", "None"] 
+                ),
+                preprocessor_resolution: int = Input(
+                    description="Preprocessor resolution",
+                    default=512
+                ),
+                a_prompt: str = Input(
+                    description="Additional text to be appended to prompt",
+                    default="Best quality, extremely detailed"
+                ),
+                n_prompt: str = Input(
+                    description="Negative prompt",
+                    default="Longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
+                ),
+                guessmode: bool= Input(
+                    description="Negative prompt",
+                    default=False
+                )
+    ) -> List[Path]:
+        """Run a single prediction on the model"""
+        num_samples = int(num_samples)
+        image_resolution = int(image_resolution)
+        if not seed:
+            seed = np.random.randint(1000000)
+        else:
+            seed = int(seed)
+
+        # load input_image
+        input_image = Image.open(image)
+        # convert to numpy
+        input_image = np.array(input_image)
+
+        if structure == 'lineart':
+            outputs = process(
+                self.model,
+                self.ddim_sampler,
+                preprocessor,
+                input_image,
+                prompt,
+                a_prompt,
+                n_prompt,
+                num_samples,
+                image_resolution,
+                preprocessor_resolution,
+                ddim_steps,
+                guessmode,
+                strength,
+                scale,
+                seed,
+                eta,
+            )
+        
+        
+        # outputs from list to PIL
+        outputs = [Image.fromarray(output) for output in outputs]
+        # save outputs to file
+        outputs = [output.save(f"tmp/output_{i}.png") for i, output in enumerate(outputs)]
+        # return paths to output files
+        return [Path(f"tmp/output_{i}.png") for i in range(len(outputs))]
