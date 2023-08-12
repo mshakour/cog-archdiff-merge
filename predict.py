@@ -6,18 +6,15 @@ from ldm.models.diffusion.ddim import DDIMSampler
 from PIL import Image
 import numpy as np
 from typing import List
-# from utils import download_model
 from gradio_lineart import process
 
 
 class Predictor(BasePredictor):
     def setup(self):
-        """Load the model into memory to make running multiple predictions efficient"""
-        # download_model("https://civitai-delivery-worker-prod-2023-08-01.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/941582/model/xsmerge.vwdj.ckpt?X-Amz-Expires=86400&response-content-disposition=attachment%3B%20filename%3D%22xsmerge_v31.ckpt%22&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=2fea663d76bd24a496545da373d610fc/20230810/us-east-1/s3/aws4_request&X-Amz-Date=20230810T134122Z&X-Amz-SignedHeaders=host&X-Amz-Signature=e886c092897c3e3cae0566bc2b833a36e972157b00a98627d54a26b356f79cd4", "./models")
-        # download_model("https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_lineart.pth", "./models")
+        
         model_name = 'control_v11p_sd15_lineart'
         self.model = create_model(f'./models/{model_name}.yaml').cuda()
-        self.model.load_state_dict(load_state_dict('./models/xsmerge_v31.ckpt', location='cuda'), strict=False)
+        self.model.load_state_dict(load_state_dict('./models/dreamlook_icbp_training_1_5k.safetensors', location='cuda'), strict=False)
         self.model.load_state_dict(load_state_dict(f'./models/{model_name}.pth', location='cuda'), strict=False)
         self.ddim_sampler = DDIMSampler(self.model)
 
