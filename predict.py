@@ -14,7 +14,7 @@ class Predictor(BasePredictor):
         
         model_name = 'control_v11p_sd15_lineart'
         self.model = create_model(f'./models/{model_name}.yaml').cuda()
-        self.model.load_state_dict(load_state_dict('./models/archdiff.safetensors', location='cuda'), strict=False)
+        self.model.load_state_dict(load_state_dict('./models/archdiff.ckpt', location='cuda'), strict=False)
         self.model.load_state_dict(load_state_dict(f'./models/{model_name}.pth', location='cuda'), strict=False)
         self.ddim_sampler = DDIMSampler(self.model)
 
